@@ -23,5 +23,5 @@ Nesta primeira configuração, o code owner aprova todos os caminhos.
 - [ ] O agente não integra, não publica e não altera estas configurações.
 - [ ] Credencial do agente, se houver, limitada a este repositório e com validade curta.
 - [ ] Nenhuma chave SSH ou credencial pessoal montada no contêiner.
-- [ ] Repositório skillquest-desafios privado e sem acesso dos agentes de desenvolvimento.
+- [ ] Repositório skillquest-challenges privado e sem acesso dos agentes de desenvolvimento.
 - [ ] Limite de gasto definido para os agentes.

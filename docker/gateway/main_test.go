@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func eco(t *testing.T) net.Listener {
+func echo(t *testing.T) net.Listener {
 	t.Helper()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -29,14 +29,14 @@ func eco(t *testing.T) net.Listener {
 	return l
 }
 
-func pedir(t *testing.T, servidor, linha string) (net.Conn, *bufio.Reader, int) {
+func request(t *testing.T, server, line string) (net.Conn, *bufio.Reader, int) {
 	t.Helper()
-	c, err := net.Dial("tcp", servidor)
+	c, err := net.Dial("tcp", server)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { c.Close() })
-	fmt.Fprintf(c, "%s HTTP/1.1\r\nHost: teste\r\n\r\n", linha)
+	fmt.Fprintf(c, "%s HTTP/1.1\r\nHost: teste\r\n\r\n", line)
 	r := bufio.NewReader(c)
 	resp, err := http.ReadResponse(r, &http.Request{Method: http.MethodConnect})
 	if err != nil {
@@ -46,19 +46,19 @@ func pedir(t *testing.T, servidor, linha string) (net.Conn, *bufio.Reader, int) 
 }
 
 func TestProxy(t *testing.T) {
-	destino := eco(t)
-	var discados []string
-	s := httptest.NewServer(&proxy{
-		permitidos: lista("api.anthropic.com"),
-		conectar: func(e string) (net.Conn, error) {
-			discados = append(discados, e)
-			return net.Dial("tcp", destino.Addr().String())
+	upstream := echo(t)
+	var dialed []string
+	srv := httptest.NewServer(&proxy{
+		allowed: parseList("api.anthropic.com"),
+		connect: func(a string) (net.Conn, error) {
+			dialed = append(dialed, a)
+			return net.Dial("tcp", upstream.Addr().String())
 		},
 	})
-	defer s.Close()
-	addr := s.Listener.Addr().String()
+	defer srv.Close()
+	addr := srv.Listener.Addr().String()
 
-	recusados := map[string]int{
+	rejected := map[string]int{
 		"CONNECT exemplo.com:443":                   403,
 		"CONNECT api.anthropic.com:22":              403,
 		"CONNECT api.anthropic.com.exemplo.com:443": 403,
@@ -66,52 +66,52 @@ func TestProxy(t *testing.T) {
 		"CONNECT 127.0.0.1:443":                     403,
 		"GET http://api.anthropic.com/":             405,
 	}
-	for linha, esperado := range recusados {
-		if _, _, status := pedir(t, addr, linha); status != esperado {
-			t.Errorf("%s: status %d, esperado %d", linha, status, esperado)
+	for line, want := range rejected {
+		if _, _, status := request(t, addr, line); status != want {
+			t.Errorf("%s: status %d, esperado %d", line, status, want)
 		}
 	}
-	if len(discados) != 0 {
-		t.Fatalf("pedido recusado abriu conexão: %v", discados)
+	if len(dialed) != 0 {
+		t.Fatalf("pedido recusado abriu conexão: %v", dialed)
 	}
 
-	c, r, status := pedir(t, addr, "CONNECT API.Anthropic.com:443")
+	c, r, status := request(t, addr, "CONNECT API.Anthropic.com:443")
 	if status != 200 {
 		t.Fatalf("permitido: status %d", status)
 	}
 	fmt.Fprint(c, "ola\n")
-	if linha, err := r.ReadString('\n'); err != nil || linha != "ola\n" {
-		t.Fatalf("túnel: %q %v", linha, err)
+	if line, err := r.ReadString('\n'); err != nil || line != "ola\n" {
+		t.Fatalf("túnel: %q %v", line, err)
 	}
 }
 
-func TestSomentePublico(t *testing.T) {
-	for _, e := range []string{"127.0.0.1:443", "10.0.0.5:443", "172.18.0.1:443",
+func TestPublicOnly(t *testing.T) {
+	for _, a := range []string{"127.0.0.1:443", "10.0.0.5:443", "172.18.0.1:443",
 		"192.168.1.1:443", "169.254.169.254:443", "0.0.0.0:443", "[::1]:443", "[fd00::1]:443", "[fe80::1]:443"} {
-		if somentePublico("tcp", e, nil) == nil {
-			t.Errorf("%s deveria ser recusado", e)
+		if publicOnly("tcp", a, nil) == nil {
+			t.Errorf("%s deveria ser recusado", a)
 		}
 	}
-	if err := somentePublico("tcp", "1.1.1.1:443", nil); err != nil {
+	if err := publicOnly("tcp", "1.1.1.1:443", nil); err != nil {
 		t.Errorf("endereço público recusado: %v", err)
 	}
 }
 
-func TestRepasse(t *testing.T) {
-	destino := eco(t)
+func TestForward(t *testing.T) {
+	upstream := echo(t)
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer l.Close()
-	go repassar(l, destino.Addr().String())
+	go forward(l, upstream.Addr().String())
 	c, err := net.Dial("tcp", l.Addr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer c.Close()
 	fmt.Fprint(c, "ola\n")
-	if linha, err := bufio.NewReader(c).ReadString('\n'); err != nil || linha != "ola\n" {
-		t.Fatalf("repasse: %q %v", linha, err)
+	if line, err := bufio.NewReader(c).ReadString('\n'); err != nil || line != "ola\n" {
+		t.Fatalf("repasse: %q %v", line, err)
 	}
 }

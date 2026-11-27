@@ -12,10 +12,14 @@ Plataforma de aprendizado. API e revisor em Go, web em Angular, PostgreSQL.
 
 Os servidores de desenvolvimento escutam em 0.0.0.0, nas portas 4200 (web) e 8080 (API).
 
+## Nomes
+- Em inglês: repositórios, pastas, arquivos, código, tabelas, estados e rotas da API.
+- Em português: telas (inclusive os endereços no navegador), desafios, mensagens para pessoas, comentários e documentação.
+
 ## Fontes da verdade
 - API: contracts/openapi.yaml (rascunho até a T-05)
 - Banco: api/migrations/ (não altere migração já integrada)
-- Visual: web/design/tokens e docs/telas/ (ainda não existem)
+- Visual: web/design/tokens e docs/screens/ (ainda não existem)
 
 ## Regras
 - Uma tarefa por branch e por pedido de integração.

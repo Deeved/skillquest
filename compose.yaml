@@ -7,11 +7,11 @@ x-dev: &dev
     context: .
     dockerfile: docker/dev.Dockerfile
     args:
-      GO_IMAGE: ${GO_IMAGE:?defina em docker/versoes.env}
-      NODE_IMAGE: ${NODE_IMAGE:?defina em docker/versoes.env}
-      CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:?rode scripts/fixar-versoes.sh}
-      UID_LOCAL: ${UID_LOCAL:?defina em .env}
-      GID_LOCAL: ${GID_LOCAL:?defina em .env}
+      GO_IMAGE: ${GO_IMAGE:?defina em docker/versions.env}
+      NODE_IMAGE: ${NODE_IMAGE:?defina em docker/versions.env}
+      CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:?rode scripts/pin-versions.sh}
+      LOCAL_UID: ${LOCAL_UID:?defina em .env}
+      LOCAL_GID: ${LOCAL_GID:?defina em .env}
   image: skillquest-dev
   user: dev
   working_dir: /workspace
@@ -20,20 +20,20 @@ x-dev: &dev
   security_opt: ["no-new-privileges:true"]
   volumes:
     - .:/workspace
-  environment: &ambiente
+  environment: &env
     DATABASE_URL: postgres://skillquest:${DB_PASSWORD:?defina em .env}@db:5432/skillquest?sslmode=disable
-    EXECUTOR: simulado   # não executa código de participante
-    AGENTE: simulado     # o revisor do produto não chama a API do Claude
+    EXECUTOR: fake       # não executa código de participante
+    AGENT: fake          # o revisor do produto não chama a API do Claude
 
 services:
   dev:
     <<: *dev
     command: sleep infinity
     environment:
-      <<: *ambiente
-      HTTPS_PROXY: http://rede:3128
-      HTTP_PROXY: http://rede:3128
-      NO_PROXY: localhost,127.0.0.1,db,rede
+      <<: *env
+      HTTPS_PROXY: http://gateway:3128
+      HTTP_PROXY: http://gateway:3128
+      NO_PROXY: localhost,127.0.0.1,db,gateway
       CLAUDE_CONFIG_DIR: /home/dev/.claude
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
       DISABLE_AUTOUPDATER: "1"
@@ -44,62 +44,62 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      rede:
+      gateway:
         condition: service_started
-    networks: [interna]            # sem rota direta para a internet
+    networks: [private]            # sem rota direta para a internet
 
   # Única passagem: libera só os endereços da lista e publica as portas locais.
-  rede:
+  gateway:
     build:
-      context: docker/rede
+      context: docker/gateway
       args:
-        GO_IMAGE: ${GO_IMAGE:?defina em docker/versoes.env}
-    image: skillquest-rede
+        GO_IMAGE: ${GO_IMAGE:?defina em docker/versions.env}
+    image: skillquest-gateway
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     environment:
-      PERMITIDOS: api.anthropic.com,platform.claude.com,claude.ai,claude.com
-      REPASSES: ":4200=dev:4200,:8080=dev:8080"
+      ALLOWED_HOSTS: api.anthropic.com,platform.claude.com,claude.ai,claude.com
+      FORWARDS: ":4200=dev:4200,:8080=dev:8080"
     ports:
       - "127.0.0.1:4200:4200"   # web
       - "127.0.0.1:8080:8080"   # API
-    networks: [interna, externa]
+    networks: [private, egress]
 
   verify:
     <<: *dev
-    profiles: [verificacao]
+    profiles: [verify]
     command: make verify
     depends_on:
       db:
         condition: service_healthy
-    networks: [verificacao]     # sem internet e sem o proxy
+    networks: [offline]         # sem internet e sem o proxy
 
   db:
-    image: ${POSTGRES_IMAGE:?defina em docker/versoes.env}
+    image: ${POSTGRES_IMAGE:?defina em docker/versions.env}
     environment:
       POSTGRES_USER: skillquest
       POSTGRES_DB: skillquest
       POSTGRES_PASSWORD: ${DB_PASSWORD:?defina em .env}
     volumes:
-      - dados:/var/lib/postgresql   # caminho usado a partir do PostgreSQL 18
+      - db_data:/var/lib/postgresql   # caminho usado a partir do PostgreSQL 18
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U skillquest -d skillquest"]
       interval: 5s
       retries: 10
-    networks: [interna, verificacao]
+    networks: [private, offline]
 
 volumes:
-  dados:
+  db_data:
   claude:
 
 networks:
-  interna:
+  private:
     internal: true
-    driver_opts: &sem_computador
+    driver_opts: &no_host
       # Sem endereço do computador na rede: o contêiner não alcança serviços dele.
       com.docker.network.bridge.gateway_mode_ipv4: isolated
-  verificacao:
+  offline:
     internal: true
-    driver_opts: *sem_computador
-  externa: {}
+    driver_opts: *no_host
+  egress: {}

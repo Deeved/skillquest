@@ -10,8 +10,8 @@ Nada.
 - Definir o dono do produto, o responsável técnico e uma pessoa substituta.
 - Escolher o serviço Git e o CI.
 - Criar o repositório skillquest com este kit.
-- Criar o repositório privado skillquest-desafios.
-- Seguir docs/configuracao-repositorio.md.
+- Criar o repositório privado skillquest-challenges.
+- Seguir docs/repository-setup.md.
 
 ## Fora do escopo
 - Colocar material de desafios no repositório skillquest (ver T-11 no plano).
@@ -20,7 +20,7 @@ Nada.
 1. Os três papéis têm nome.
 2. Um envio direto ao ramo principal é recusado.
 3. Um pedido de integração sem aprovação não pode ser integrado.
-4. O agente não tem acesso ao repositório skillquest-desafios.
+4. O agente não tem acesso ao repositório skillquest-challenges.
 
 ## Revisão
 Pessoa.

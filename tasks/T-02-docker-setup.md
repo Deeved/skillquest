@@ -7,10 +7,10 @@ Qualquer pessoa ou agente sobe o mesmo ambiente e roda make verify.
 T-01.
 
 ## Ler antes
-- README.md, compose.yaml, docker/, scripts/verificar.sh
+- README.md, compose.yaml, docker/, scripts/verify.sh
 
 ## Escopo
-- Uma pessoa roda scripts/fixar-versoes.sh, constrói as imagens e informa os erros.
+- Uma pessoa roda scripts/pin-versions.sh, constrói as imagens e informa os erros.
 - Corrigir o rascunho de Docker até as imagens construírem e iniciarem.
 - Criar o esqueleto de api/, reviewer/ (Go) e web/ (Angular, versão compatível com o Node da imagem).
 - Instalar as dependências na construção da imagem.
