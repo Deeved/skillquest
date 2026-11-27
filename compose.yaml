@@ -1,0 +1,105 @@
+# Ambiente de DESENVOLVIMENTO. Não serve para isolar código de participante.
+# Quem executa o Docker é uma pessoa. Mudanças aqui exigem aprovação.
+name: skillquest
+
+x-dev: &dev
+  build:
+    context: .
+    dockerfile: docker/dev.Dockerfile
+    args:
+      GO_IMAGE: ${GO_IMAGE:?defina em docker/versoes.env}
+      NODE_IMAGE: ${NODE_IMAGE:?defina em docker/versoes.env}
+      CLAUDE_CODE_VERSION: ${CLAUDE_CODE_VERSION:?rode scripts/fixar-versoes.sh}
+      UID_LOCAL: ${UID_LOCAL:?defina em .env}
+      GID_LOCAL: ${GID_LOCAL:?defina em .env}
+  image: skillquest-dev
+  user: dev
+  working_dir: /workspace
+  init: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  volumes:
+    - .:/workspace
+  environment: &ambiente
+    DATABASE_URL: postgres://skillquest:${DB_PASSWORD:?defina em .env}@db:5432/skillquest?sslmode=disable
+    EXECUTOR: simulado   # não executa código de participante
+    AGENTE: simulado     # o revisor do produto não chama a API do Claude
+
+services:
+  dev:
+    <<: *dev
+    command: sleep infinity
+    environment:
+      <<: *ambiente
+      HTTPS_PROXY: http://rede:3128
+      HTTP_PROXY: http://rede:3128
+      NO_PROXY: localhost,127.0.0.1,db,rede
+      CLAUDE_CONFIG_DIR: /home/dev/.claude
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+      DISABLE_AUTOUPDATER: "1"
+      ENABLE_CLAUDEAI_MCP_SERVERS: "false"
+    volumes:
+      - .:/workspace
+      - claude:/home/dev/.claude   # login do agente de desenvolvimento
+    depends_on:
+      db:
+        condition: service_healthy
+      rede:
+        condition: service_started
+    networks: [interna]            # sem rota direta para a internet
+
+  # Única passagem: libera só os endereços da lista e publica as portas locais.
+  rede:
+    build:
+      context: docker/rede
+      args:
+        GO_IMAGE: ${GO_IMAGE:?defina em docker/versoes.env}
+    image: skillquest-rede
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      PERMITIDOS: api.anthropic.com,platform.claude.com,claude.ai,claude.com
+      REPASSES: ":4200=dev:4200,:8080=dev:8080"
+    ports:
+      - "127.0.0.1:4200:4200"   # web
+      - "127.0.0.1:8080:8080"   # API
+    networks: [interna, externa]
+
+  verify:
+    <<: *dev
+    profiles: [verificacao]
+    command: make verify
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [verificacao]     # sem internet e sem o proxy
+
+  db:
+    image: ${POSTGRES_IMAGE:?defina em docker/versoes.env}
+    environment:
+      POSTGRES_USER: skillquest
+      POSTGRES_DB: skillquest
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina em .env}
+    volumes:
+      - dados:/var/lib/postgresql   # caminho usado a partir do PostgreSQL 18
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skillquest -d skillquest"]
+      interval: 5s
+      retries: 10
+    networks: [interna, verificacao]
+
+volumes:
+  dados:
+  claude:
+
+networks:
+  interna:
+    internal: true
+    driver_opts: &sem_computador
+      # Sem endereço do computador na rede: o contêiner não alcança serviços dele.
+      com.docker.network.bridge.gateway_mode_ipv4: isolated
+  verificacao:
+    internal: true
+    driver_opts: *sem_computador
+  externa: {}

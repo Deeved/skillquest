@@ -1,0 +1,178 @@
+# RASCUNHO: rotas já listadas no plano. Corpos, respostas e CSRF são definidos na T-05.
+openapi: 3.1.0
+info:
+  title: SkillQuest
+  version: 0.0.0-rascunho
+security:
+  - sessao: []
+paths:
+  /api/convites/{token}/aceitar:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Cria a senha
+      x-quem-usa: Convidado
+      security: []
+      responses:
+        '201':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/sessao:
+    post:
+      summary: Entra
+      x-quem-usa: Todos
+      security: []
+      responses:
+        '201':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+    delete:
+      summary: Sai
+      x-quem-usa: Todos
+      responses:
+        '204':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/painel:
+    get:
+      summary: Traz trilhas e desafio atual
+      x-quem-usa: Participante
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/desafios/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Traz cenário, critérios e dicas já liberadas
+      x-quem-usa: Participante
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/desafios/{id}/dicas:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Libera a próxima dica
+      x-quem-usa: Participante
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/desafios/{id}/entregas:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Recebe a entrega em .zip
+      x-quem-usa: Participante
+      responses:
+        '202':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/entregas/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      summary: Mostra o andamento e o resultado
+      x-quem-usa: Dono ou supervisão
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/entregas/{id}/contestacao:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Pede revisão humana
+      x-quem-usa: Dono
+      responses:
+        '201':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/perfil:
+    get:
+      summary: Traz competências e itens
+      x-quem-usa: Participante
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/supervisao/fila:
+    get:
+      summary: Lista os casos pendentes
+      x-quem-usa: Supervisão
+      responses:
+        '200':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/supervisao/revisoes/{id}/decisao:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      summary: Registra a decisão e a justificativa
+      x-quem-usa: Supervisão
+      responses:
+        '201':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+  /api/supervisao/convites:
+    post:
+      summary: Gera um convite ou um link para nova senha
+      x-quem-usa: Supervisão
+      responses:
+        '201':
+          description: A definir na T-05.
+        default:
+          $ref: '#/components/responses/Erro'
+components:
+  securitySchemes:
+    sessao:
+      type: apiKey
+      in: cookie
+      name: sessao   # nome provisório
+  responses:
+    Erro:
+      description: Erro. Formato provisório.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [motivo]
+            properties:
+              campo: { type: string }
+              motivo: { type: string }
