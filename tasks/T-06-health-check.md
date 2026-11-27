@@ -16,7 +16,7 @@ T-03 e T-05.
 1. GET /api/health responde 200 com {"status":"ok"}.
 2. Outros métodos respondem 405.
 3. A rota não exige login.
-4. O CI passa e uma pessoa aprova a integração.
+4. O CI passa e uma pessoa revisa e faz o merge.
 
 ## Revisão
 Normal.

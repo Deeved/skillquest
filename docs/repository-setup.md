@@ -1,27 +1,44 @@
 # Configuração do repositório no GitHub (feita por uma pessoa)
 
-## Antes de começar
-- **Plano e visibilidade:** segundo a [documentação](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches), a proteção de ramo vale para repositórios públicos no plano gratuito. Em repositório privado, exige Pro, Team ou Enterprise.
-- **Duas identidades:** quem abre um pedido de integração [não pode aprová-lo](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews). Se o agente usar a sua conta, você não poderá aprovar o trabalho dele. Quem abre e quem aprova precisam ser contas diferentes.
-- **Code owner:** o arquivo `.github/CODEOWNERS` aponta um [responsável](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners), que precisa ter permissão de escrita. Se for quem abre os pedidos, indique outra pessoa. Para ter substituto, acrescente o usuário na mesma linha.
+## Como o projeto está organizado
+- **Uma pessoa, plano gratuito.** `@Deeved` é o dono do produto e o responsável técnico. Não há substituto: é um risco aceito.
+- **Repositório `skillquest` público.** No plano gratuito, a [proteção de ramo](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) vale para repositórios públicos.
+- **Repositório `skillquest-challenges` privado.** Gabaritos, testes obrigatórios e entregas de referência ficam somente nele.
+- **CI:** GitHub Actions, configurado na T-03. Nos repositórios públicos, os [executores padrão não têm custo](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+- **Sem aprovação obrigatória.** Quem abre um pedido de integração [não pode aprová-lo](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews). A revisão é um compromisso: ler as mudanças antes de fazer o merge.
+
+**Risco aceito:** um agente com permissão de merge pela conta `@Deeved` conseguiria integrar sem essa revisão. Quando a ferramenta do agente for escolhida, avaliar uma [conta de máquina](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) para ele. Se funcionar, passar a exigir 1 aprovação.
+
+## Antes de tornar o repositório público
+- [ ] Confirmar que há autorização para publicar e que nada é código ou dado de empresa.
+- [ ] Procurar segredos e dados pessoais nos arquivos, no histórico e nos pedidos de integração.
+- [ ] Ativar [Keep my email addresses private](https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address). Vale só para os próximos commits. No computador, configurar o `git config user.email` com o endereço `noreply` do GitHub.
+- [ ] Saber que o código, o histórico e os [registros do Actions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility) ficam visíveis e que qualquer pessoa pode fazer um fork.
+
+Sem um arquivo `LICENSE`, o projeto não concede licença de uso. Escolher uma é uma decisão separada.
 
 ## Proteção do ramo main
-Ative depois do primeiro envio.
+Em **Settings > Branches**, crie uma [regra de proteção](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/managing-a-branch-protection-rule) para `main`.
 
-- [ ] Exigir pedido de integração com 1 aprovação.
-- [ ] Exigir a revisão do code owner.
-- [ ] Descartar aprovações quando houver novos commits.
-- [ ] Exigir aprovação do envio mais recente por outra pessoa.
-- [ ] Não permitir contornar as regras, inclusive para administradores. Sem essa opção, eles não ficam sujeitos à regra.
-- [ ] Manter bloqueados o envio forçado e a exclusão do ramo.
-- [ ] Na T-03, exigir que o CI passe.
-- [ ] Testar: um envio direto ao main deve ser recusado.
+- [ ] Marcar **Require a pull request before merging**.
+- [ ] Deixar **Require approvals** desmarcado.
+- [ ] Marcar **Do not allow bypassing the above settings**. Sem essa opção, o administrador não fica sujeito à regra.
+- [ ] Deixar **Allow force pushes** e **Allow deletions** desmarcados.
+- [ ] Na T-03, marcar **Require status checks to pass before merging** e escolher a verificação do CI.
 
-Nesta primeira configuração, o code owner aprova todos os caminhos.
+### Testar a proteção
+Na pasta do projeto, este comando tenta enviar um commit vazio direto ao `main`, sem alterar os seus arquivos nem os ramos locais:
+
+```sh
+git fetch origin
+git push origin "$(git commit-tree 'origin/main^{tree}' -p origin/main -m 'Teste de proteção')":refs/heads/main
+```
+
+O esperado é o GitHub **recusar** o envio por causa da regra do ramo. Faça o teste somente depois de criar a regra. Se o envio for aceito, o `main` ganha um commit sem mudanças: revise a regra.
 
 ## Acessos
-- [ ] O agente não integra, não publica e não altera estas configurações.
-- [ ] Credencial do agente, se houver, limitada a este repositório e com validade curta.
+- [ ] O agente não faz merge, não publica e não altera a visibilidade nem estas configurações.
+- [ ] Credencial do agente, se houver, limitada ao `skillquest` e com validade curta.
 - [ ] Nenhuma chave SSH ou credencial pessoal montada no contêiner.
-- [ ] Repositório skillquest-challenges privado e sem acesso dos agentes de desenvolvimento.
+- [ ] `skillquest-challenges` privado e fora do alcance dos agentes de desenvolvimento, inclusive no computador.
 - [ ] Limite de gasto definido para os agentes.
