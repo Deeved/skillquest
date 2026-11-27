@@ -27,6 +27,8 @@ Os servidores de desenvolvimento escutam em 0.0.0.0, nas portas 4200 (web) e 808
 - Não apague, pule nem enfraqueça teste para a verificação passar.
 - Não adicione dependência sem pedir aprovação.
 - Use apenas dados fictícios e nenhum código da empresa.
+- Este repositório é público. Não coloque nele gabaritos, testes obrigatórios, entregas de referência nem dados pessoais.
+- Não envie direto ao main, não faça merge e não mude a visibilidade nem as configurações do repositório.
 - Não coloque segredos no código, nos logs ou nos testes.
 - Nunca rode código de participante fora do ambiente isolado.
 - Não monte o socket do Docker nem use modo privilegiado.
