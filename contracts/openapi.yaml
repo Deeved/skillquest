@@ -4,9 +4,9 @@ info:
   title: SkillQuest
   version: 0.0.0-rascunho
 security:
-  - sessao: []
+  - session: []
 paths:
-  /api/convites/{token}/aceitar:
+  /api/invitations/{token}/accept:
     parameters:
       - name: token
         in: path
@@ -14,41 +14,41 @@ paths:
         schema: { type: string }
     post:
       summary: Cria a senha
-      x-quem-usa: Convidado
+      x-used-by: Convidado
       security: []
       responses:
         '201':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/sessao:
+          $ref: '#/components/responses/Error'
+  /api/session:
     post:
       summary: Entra
-      x-quem-usa: Todos
+      x-used-by: Todos
       security: []
       responses:
         '201':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
+          $ref: '#/components/responses/Error'
     delete:
       summary: Sai
-      x-quem-usa: Todos
+      x-used-by: Todos
       responses:
         '204':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/painel:
+          $ref: '#/components/responses/Error'
+  /api/dashboard:
     get:
       summary: Traz trilhas e desafio atual
-      x-quem-usa: Participante
+      x-used-by: Participante
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/desafios/{id}:
+          $ref: '#/components/responses/Error'
+  /api/challenges/{id}:
     parameters:
       - name: id
         in: path
@@ -56,13 +56,13 @@ paths:
         schema: { type: string }
     get:
       summary: Traz cenário, critérios e dicas já liberadas
-      x-quem-usa: Participante
+      x-used-by: Participante
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/desafios/{id}/dicas:
+          $ref: '#/components/responses/Error'
+  /api/challenges/{id}/hints:
     parameters:
       - name: id
         in: path
@@ -70,13 +70,13 @@ paths:
         schema: { type: string }
     post:
       summary: Libera a próxima dica
-      x-quem-usa: Participante
+      x-used-by: Participante
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/desafios/{id}/entregas:
+          $ref: '#/components/responses/Error'
+  /api/challenges/{id}/submissions:
     parameters:
       - name: id
         in: path
@@ -84,13 +84,13 @@ paths:
         schema: { type: string }
     post:
       summary: Recebe a entrega em .zip
-      x-quem-usa: Participante
+      x-used-by: Participante
       responses:
         '202':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/entregas/{id}:
+          $ref: '#/components/responses/Error'
+  /api/submissions/{id}:
     parameters:
       - name: id
         in: path
@@ -98,13 +98,13 @@ paths:
         schema: { type: string }
     get:
       summary: Mostra o andamento e o resultado
-      x-quem-usa: Dono ou supervisão
+      x-used-by: Dono ou supervisão
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/entregas/{id}/contestacao:
+          $ref: '#/components/responses/Error'
+  /api/submissions/{id}/appeal:
     parameters:
       - name: id
         in: path
@@ -112,31 +112,31 @@ paths:
         schema: { type: string }
     post:
       summary: Pede revisão humana
-      x-quem-usa: Dono
+      x-used-by: Dono
       responses:
         '201':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/perfil:
+          $ref: '#/components/responses/Error'
+  /api/profile:
     get:
       summary: Traz competências e itens
-      x-quem-usa: Participante
+      x-used-by: Participante
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/supervisao/fila:
+          $ref: '#/components/responses/Error'
+  /api/supervision/queue:
     get:
       summary: Lista os casos pendentes
-      x-quem-usa: Supervisão
+      x-used-by: Supervisão
       responses:
         '200':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/supervisao/revisoes/{id}/decisao:
+          $ref: '#/components/responses/Error'
+  /api/supervision/reviews/{id}/decision:
     parameters:
       - name: id
         in: path
@@ -144,35 +144,35 @@ paths:
         schema: { type: string }
     post:
       summary: Registra a decisão e a justificativa
-      x-quem-usa: Supervisão
+      x-used-by: Supervisão
       responses:
         '201':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
-  /api/supervisao/convites:
+          $ref: '#/components/responses/Error'
+  /api/supervision/invitations:
     post:
       summary: Gera um convite ou um link para nova senha
-      x-quem-usa: Supervisão
+      x-used-by: Supervisão
       responses:
         '201':
           description: A definir na T-05.
         default:
-          $ref: '#/components/responses/Erro'
+          $ref: '#/components/responses/Error'
 components:
   securitySchemes:
-    sessao:
+    session:
       type: apiKey
       in: cookie
-      name: sessao   # nome provisório
+      name: session  # nome provisório
   responses:
-    Erro:
+    Error:
       description: Erro. Formato provisório.
       content:
         application/json:
           schema:
             type: object
-            required: [motivo]
+            required: [reason]
             properties:
-              campo: { type: string }
-              motivo: { type: string }
+              field: { type: string }
+              reason: { type: string }

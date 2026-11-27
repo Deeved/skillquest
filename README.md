@@ -10,13 +10,13 @@ Atenção: quem está no grupo `docker` tem [privilégios equivalentes aos de ro
 
 ## Primeira vez (uma pessoa, na pasta do projeto)
 ```sh
-sh scripts/fixar-versoes.sh     # grava digests e a versão do Claude Code
-sh scripts/preparar-env.sh      # cria o .env
-alias dc='docker compose --env-file docker/versoes.env --env-file .env'
+sh scripts/pin-versions.sh     # grava digests e a versão do Claude Code
+sh scripts/prepare-env.sh      # cria o .env
+alias dc='docker compose --env-file docker/versions.env --env-file .env'
 dc build
 dc up -d dev
 ```
-Revise e envie a mudança em `docker/versoes.env` por pedido de integração.
+Revise e envie a mudança em `docker/versions.env` por pedido de integração.
 
 ## Trabalhar com o agente
 ```sh
@@ -36,7 +36,7 @@ Enquanto não houver código do produto, a verificação **falha de propósito**
 `dc down` mantém o banco e o login. `dc down -v` apaga os dois.
 
 ## Rede
-O `dev` não tem rota direta para a internet. O serviço `rede` abre túneis na porta 443 apenas para os endereços de `PERMITIDOS` e recusa nomes que resolvam para endereços internos. Os endereços vêm dos [requisitos de rede do Claude Code](https://code.claude.com/docs/en/network-config.md); outros recursos dele podem ficar indisponíveis. O envio ao Git é feito por uma pessoa.
+O `dev` não tem rota direta para a internet. O serviço `gateway` abre túneis na porta 443 apenas para os endereços de `ALLOWED_HOSTS` e recusa nomes que resolvam para endereços internos. Os endereços vêm dos [requisitos de rede do Claude Code](https://code.claude.com/docs/en/network-config.md); outros recursos dele podem ficar indisponíveis. O envio ao Git é feito por uma pessoa.
 
 Limites:
 - O agente ainda alcança os endereços liberados e pode enviar a eles o que ler no contêiner.

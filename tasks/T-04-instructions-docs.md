@@ -9,7 +9,7 @@ T-02.
 ## Escopo
 - Revisar AGENTS.md com base no que a T-02 criou; manter abaixo de 200 linhas.
 - Levar para docs/ o escopo, as decisões, a arquitetura e as regras de segurança.
-- Criar docs/seguranca.md.
+- Criar docs/security.md.
 - Uma pessoa fornece o texto dos documentos do projeto.
 
 ## Fora do escopo
