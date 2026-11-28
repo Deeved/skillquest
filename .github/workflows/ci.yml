@@ -25,7 +25,7 @@ env:
   OSV_SCANNER_IMAGE: ghcr.io/google/osv-scanner:v2.7.1@sha256:a70ffffc2bfd33482953e5d6b64c6fcdb30239717a07b0f0d3ab2859ce3e4cde
   # report: falha conhecida em dependência só gera aviso; erro do scanner sempre falha.
   # Passa a block depois da correção do minimatch, em outro pedido de integração.
-  DEPS_MODE: report
+  DEPS_MODE: block
 
 defaults:
   run:
