@@ -17,5 +17,5 @@
 
 [[IgnoredVulns]]
 id = "GHSA-g3hv-75wg-m249"
-effectiveUntil = 2026-12-28
+effectiveUntil = 2026-11-27
 reason = "NÃO INTEGRAR: teste da T-03."
