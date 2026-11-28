@@ -1,0 +1,214 @@
+# CI do SkillQuest (T-03). Roda em todo pedido de integração e a cada envio ao main.
+#
+# Atenção: com pull_request, o GitHub roda a versão deste arquivo e de .github/scripts/
+# que o próprio pedido traz. Um pedido pode desligar uma verificação e mesmo assim ficar
+# verde. Toda mudança nesses arquivos exige revisão humana antes do merge
+# (ver docs/repository-setup.md).
+#
+# Verificações obrigatórias no main: verify, secrets e deps. Não renomeie os jobs.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Nenhuma permissão no workflow; cada job pede só leitura do conteúdo. Nenhum segredo é usado.
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  OSV_SCANNER_IMAGE: ghcr.io/google/osv-scanner:v2.7.1@sha256:a70ffffc2bfd33482953e5d6b64c6fcdb30239717a07b0f0d3ab2859ce3e4cde
+  # report: falha conhecida em dependência só gera aviso; erro do scanner sempre falha.
+  # Passa a block depois da correção do minimatch, em outro pedido de integração.
+  DEPS_MODE: report
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Executor (UID, GID e versões do Docker)
+        run: |
+          id
+          docker version
+          docker compose version
+
+      # O contêiner do verify monta o projeto com escrita. Por isso ele recebe uma cópia
+      # sem .git, e nenhum passo depois do verify usa essa cópia: os scripts e o
+      # docker/versions.env vêm do checkout original, que não é montado.
+      - name: Copiar o projeto para uma pasta sem .git
+        run: |
+          work="$RUNNER_TEMP/work"
+          mkdir "$work"
+          git checkout-index --all --prefix="$work/"
+          test ! -e "$work/.git"
+
+      - name: Gerar o .env fictício
+        run: |
+          cd "$RUNNER_TEMP/work"
+          test ! -e .env
+          sh scripts/prepare-env.sh
+          echo "Chaves do .env (sem os valores):"
+          cut -d= -f1 .env
+
+      - name: Construir as imagens do zero
+        run: |
+          cd "$RUNNER_TEMP/work"
+          docker compose --env-file docker/versions.env --env-file .env --profile verify \
+            build --no-cache --pull verify gateway
+
+      - name: make verify (sem internet)
+        run: |
+          cd "$RUNNER_TEMP/work"
+          docker compose --env-file docker/versions.env --env-file .env --profile verify \
+            run --rm -T verify
+
+      # Daqui em diante, nada vem de $RUNNER_TEMP/work.
+      - name: Salvar as imagens
+        run: |
+          postgres=$(sed -n 's/^POSTGRES_IMAGE=//p' docker/versions.env)
+          case $postgres in
+            *@sha256:*) ;;
+            *) echo "::error::POSTGRES_IMAGE sem digest em docker/versions.env"; exit 1 ;;
+          esac
+          images="$RUNNER_TEMP/images"
+          mkdir "$images"
+          docker save -o "$images/dev.tar" skillquest-dev
+          docker save -o "$images/gateway.tar" skillquest-gateway
+          docker save -o "$images/postgres.tar" "$postgres"
+          ls -l "$images"
+
+      - name: Baixar o OSV-Scanner
+        run: docker pull "$OSV_SCANNER_IMAGE"
+
+      - name: Autoteste do OSV-Scanner (erro não passa como sucesso)
+        run: |
+          bad="$RUNNER_TEMP/osv-autoteste"
+          mkdir "$bad"
+          printf 'isto não é um arquivo tar\n' > "$bad/corrompido.tar"
+          rc=0
+          bash .github/scripts/osv-run.sh report autoteste-imagem "$bad" "$RUNNER_TEMP/osv-out" \
+            scan image --archive /in/corrompido.tar || rc=$?
+          if [ "$rc" -ne 3 ]; then
+            echo "::error::Autoteste: esperado 3 (erro do scanner), veio $rc"
+            exit 1
+          fi
+          echo "Autoteste: o erro do scanner foi tratado como erro."
+
+      - name: Analisar as imagens (só relatório)
+        run: |
+          falhou=0
+          for nome in dev gateway postgres; do
+            bash .github/scripts/osv-run.sh report "imagem-$nome" "$RUNNER_TEMP/images" \
+              "$RUNNER_TEMP/osv-out" scan image --archive "/in/$nome.tar" || falhou=1
+          done
+          exit "$falhou"
+
+  secrets:
+    name: secrets
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Testes dos scripts do Gitleaks
+        run: |
+          bash .github/scripts/tests/test_check_gitleaks_policy.sh
+          bash .github/scripts/tests/test_gitleaks_selftest.sh
+
+      - name: Recusar .gitleaks.toml e .gitleaksignore
+        run: git ls-files -z | bash .github/scripts/check-gitleaks-policy.sh
+
+      - name: Baixar o Gitleaks
+        run: docker pull "$GITLEAKS_IMAGE"
+
+      - name: Autoteste (outro branch não afeta; controle positivo é apontado)
+        run: bash .github/scripts/gitleaks-selftest.sh selftest
+
+      - name: Procurar segredos (arquivos de HEAD e histórico alcançável por HEAD)
+        run: bash .github/scripts/gitleaks-selftest.sh scan "$GITHUB_WORKSPACE"
+
+  deps:
+    name: deps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Testes dos scripts do OSV-Scanner
+        run: |
+          python3 --version
+          python3 -I .github/scripts/tests/test_check_osv_config.py
+          bash .github/scripts/tests/test_osv_run.sh
+
+      - name: Conferir osv-scanner.toml e as exceções
+        run: |
+          git ls-files -z > "$RUNNER_TEMP/arquivos"
+          python3 -I .github/scripts/check-osv-config.py \
+            --config osv-scanner.toml --tracked-files "$RUNNER_TEMP/arquivos"
+
+      # Só os arquivos analisados vão para o contêiner do scanner.
+      - name: Separar os arquivos de dependências
+        run: |
+          deps="$RUNNER_TEMP/deps"
+          mkdir "$deps"
+          mapfile -d '' arquivos < <(git ls-files -z -- ':(glob)**/go.mod' ':(glob)**/package-lock.json')
+          if [ "${#arquivos[@]}" -eq 0 ]; then
+            echo "::error::Nenhum go.mod ou package-lock.json versionado"
+            exit 1
+          fi
+          git checkout-index --prefix="$deps/" -- osv-scanner.toml "${arquivos[@]}"
+          printf '%s\n' "${arquivos[@]}" > "$RUNNER_TEMP/deps-lista"
+          echo "Arquivos analisados:"
+          cat "$RUNNER_TEMP/deps-lista"
+
+      - name: Baixar o OSV-Scanner
+        run: docker pull "$OSV_SCANNER_IMAGE"
+
+      - name: Autoteste do OSV-Scanner (erro não passa como sucesso)
+        run: |
+          rc=0
+          bash .github/scripts/osv-run.sh report autoteste-deps "$RUNNER_TEMP/deps" "$RUNNER_TEMP/osv-out" \
+            scan source --config /in/osv-scanner.toml -L /in/nao-existe/package-lock.json || rc=$?
+          if [ "$rc" -ne 3 ]; then
+            echo "::error::Autoteste: esperado 3 (erro do scanner), veio $rc"
+            exit 1
+          fi
+          echo "Autoteste: o erro do scanner foi tratado como erro."
+
+      - name: Analisar as dependências
+        run: |
+          opcoes=()
+          while IFS= read -r arquivo; do opcoes+=(-L "/in/$arquivo"); done < "$RUNNER_TEMP/deps-lista"
+          bash .github/scripts/osv-run.sh "$DEPS_MODE" deps "$RUNNER_TEMP/deps" "$RUNNER_TEMP/osv-out" \
+            scan source --config /in/osv-scanner.toml "${opcoes[@]}"

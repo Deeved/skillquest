@@ -82,6 +82,39 @@ Limites:
 - `dc build`, `scripts/pin-versions.sh` e `scripts/create-web.sh` usam a rede do Docker, que **não passa pelo gateway** nem pela lista de endereços.
 - O isolamento de código de participante é outro trabalho, em outra máquina.
 
+## CI (GitHub Actions)
+O workflow fica em [.github/workflows/ci.yml](.github/workflows/ci.yml). Ele roda em todo pedido de integração
+(`pull_request`) e a cada envio ao `main`. Não usa segredos, e cada job só tem permissão de ler o conteúdo.
+Os comandos de conferência da T-03 estão em [tasks/T-03-checks.md](tasks/T-03-checks.md).
+
+| Verificação | O que faz | Bloqueia |
+|---|---|---|
+| `verify` | Constrói as imagens do zero, gera um `.env` fictício (`scripts/prepare-env.sh`, com o UID e o GID do executor) e roda `make verify` sem internet. Depois analisa as imagens `dev`, `gateway` e `postgres` com o OSV-Scanner. | teste, build ou análise que falhe; erro do scanner. Falha conhecida nas imagens só gera aviso. |
+| `secrets` | Procura segredos com o Gitleaks nos arquivos de HEAD e no histórico alcançável por HEAD. Recusa `.gitleaks.toml` e `.gitleaksignore`. | qualquer achado e qualquer erro |
+| `deps` | Confere as exceções em `osv-scanner.toml` e analisa os `go.mod` e os `package-lock.json` com o OSV-Scanner. | erro do scanner e exceção inválida. Por enquanto, falha conhecida só gera aviso (`DEPS_MODE: report`). |
+
+As ferramentas rodam em contêineres fixados por versão e digest, sem o socket do Docker, sem modo privilegiado,
+com o sistema de arquivos só para leitura e as entradas montadas só para leitura. O Gitleaks roda sem rede.
+O OSV-Scanner precisa de rede para consultar a base de falhas.
+
+### Exceções de dependências
+Uma falha conhecida só deixa de bloquear com uma exceção em `osv-scanner.toml`, aprovada por uma pessoa num pedido
+de integração. Cada exceção tem `id`, `reason` e `effectiveUntil`, com prazo de no máximo 90 dias. Outras chaves e
+seções são recusadas, entre elas `ignoreUntil` (obsoleta), `PackageOverrides`, `GoVersionOverride` e `ScanGoModVersion`.
+Depois do prazo, o scanner volta a apontar a falha. Só existe o `osv-scanner.toml` da raiz.
+
+### Limites
+- Um pedido de integração roda a versão do workflow e dos scripts que ele mesmo traz. Ele pode desligar uma
+  verificação e ficar verde. Mudanças em `.github/`, `osv-scanner.toml`, `.dockerignore`, `Makefile`,
+  `compose.yaml`, `docker/` e `scripts/` também podem enfraquecer o CI e exigem revisão humana.
+- A configuração padrão do Gitleaks ignora alguns caminhos, entre eles `go.mod`, `go.sum`, `package-lock.json` e
+  imagens. Um segredo nesses arquivos não é apontado.
+- Um segredo enviado ao GitHub continua público, mesmo apagado depois. Se for real, revogue-o.
+- O `deps` não cobre a biblioteca padrão do Go: o OSV-Scanner descarta a versão tirada do `go.mod`.
+  Ainda não se sabe se a análise das imagens cobre isso: falta ver o resultado no CI.
+- A análise das imagens só gera relatório. O alerta conhecido do minimatch ainda não foi corrigido.
+- O executor é descartado no fim; o CI não roda `docker compose down`.
+
 ## O que foi testado
 Por uma pessoa, em Ubuntu no WSL2, Docker Engine 29.10.1, em dois momentos:
 - **Antes das mudanças da T-02 na imagem:** construção inicial de todas as imagens e conferência dos critérios
@@ -114,3 +147,31 @@ Não testado:
 - Outras distribuições, Linux sem WSL2, Docker Desktop e o modo sem root.
 - Recarga automática da página (HMR) do `ng serve` pelo repasse do gateway.
 - Falha do `make setup` no meio da cópia de `node_modules`.
+
+### CI (T-03)
+Executado pelo agente, no contêiner `dev`, em 27/11/2026. Os testes dos scripts não usam rede nem o Docker de verdade.
+- Testes em `.github/scripts/tests/`, depois da limpeza do registro. Todos passaram, com saída 0:
+  - `test_osv_run.sh` e `test_gitleaks_selftest.sh`, com um Docker falso: códigos de saída, resumo sem o valor
+    do segredo, opções passadas aos contêineres, isolamento do histórico e textos que o executor leria como
+    comando ("::" e "##[");
+  - `test_check_osv_config.py` (32 testes) e `test_check_gitleaks_policy.sh`, sem Docker: validação de
+    `osv-scanner.toml`, recusa de `.gitleaks.toml` e `.gitleaksignore` e os mesmos textos de comando.
+- Prova de que o teste de injeção do `osv-run.sh` detecta a falha. Numa cópia temporária de `.github/scripts`,
+  com a limpeza desligada só na cópia, as três verificações de injeção falharam nas 50 rodadas. O teste original
+  passou. A mesma prova não foi feita para os outros três scripts.
+- Reprodução parcial de passos do workflow que não usam Docker, feita antes da limpeza do registro e não repetida
+  depois. Os arquivos novos ainda não estavam no índice do Git:
+  - a cópia sem `.git` foi criada sem `.git` (64 arquivos, sem os arquivos novos);
+  - a conferência de `osv-scanner.toml` mostrou "0 exceção(ões)". `osv-scanner.toml` e dois arquivos novos foram
+    acrescentados à mão à lista de arquivos versionados;
+  - a separação copiou os quatro arquivos de dependências versionados. `osv-scanner.toml` foi copiado à mão;
+  - no repositório real, a política do Gitleaks mostrou "Nenhum .gitleaks.toml ou .gitleaksignore versionado.".
+- `make verify` dentro do `dev`, duas vezes: antes e depois da limpeza do registro. Passou nas duas (saída 0).
+
+Ainda não executado:
+- o workflow no GitHub;
+- o Gitleaks e o OSV-Scanner de verdade, inclusive o autoteste real do Gitleaks;
+- a construção das imagens no executor;
+- os critérios de aceite da T-03 e os blocos de [tasks/T-03-checks.md](tasks/T-03-checks.md).
+
+A sintaxe do workflow não foi conferida por nenhuma ferramenta.

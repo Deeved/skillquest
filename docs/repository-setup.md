@@ -24,7 +24,9 @@ Em **Settings > Branches**, crie uma [regra de proteção](https://docs.github.c
 - [ ] Deixar **Require approvals** desmarcado.
 - [ ] Marcar **Do not allow bypassing the above settings**. Sem essa opção, o administrador não fica sujeito à regra.
 - [ ] Deixar **Allow force pushes** e **Allow deletions** desmarcados.
-- [ ] Na T-03, marcar **Require status checks to pass before merging** e escolher a verificação do CI.
+- [ ] Depois da primeira execução do CI (T-03), marcar **Require status checks to pass before merging** e
+  **Require branches to be up to date before merging**. Escolher as verificações `verify`, `secrets` e `deps`,
+  com a origem **GitHub Actions**. Os nomes só aparecem na lista depois que o CI roda pela primeira vez.
 
 ### Testar a proteção
 Na pasta do projeto, este comando tenta enviar um commit vazio direto ao `main`, sem alterar os seus arquivos nem os ramos locais:
@@ -35,6 +37,26 @@ git push origin "$(git commit-tree 'origin/main^{tree}' -p origin/main -m 'Teste
 ```
 
 O esperado é o GitHub **recusar** o envio por causa da regra do ramo. Faça o teste somente depois de criar a regra. Se o envio for aceito, o `main` ganha um commit sem mudanças: revise a regra.
+
+## GitHub Actions (T-03)
+Estas configurações são feitas pela pessoa responsável, na página do GitHub. O agente não as altera.
+
+Em **Settings > Actions > General**:
+- [ ] **Actions permissions:** permitir só ações selecionadas. Hoje o CI usa só `actions/checkout`.
+- [ ] Se a opção existir na conta, exigir que as ações sejam fixadas pelo SHA completo.
+- [ ] **Approval for running fork pull request workflows from contributors:** exigir aprovação para todos os
+  colaboradores externos.
+- [ ] **Workflow permissions:** escolher a permissão só de leitura e deixar desmarcada a opção que permite ao
+  Actions criar e aprovar pedidos de integração.
+
+Em **Settings > Secrets and variables > Actions**:
+- [ ] Nenhum segredo e nenhuma variável. O CI não precisa de nenhum, nem de chave do revisor.
+
+**Risco aceito:** com `pull_request`, o GitHub roda a versão do workflow e dos scripts que o próprio pedido traz.
+Um pedido pode desligar uma verificação e mesmo assim ficar verde. Por isso, mudanças nestes arquivos exigem
+revisão humana antes do merge: `.github/workflows/`, `.github/scripts/`, `osv-scanner.toml`, `.dockerignore`,
+`Makefile`, `compose.yaml`, `docker/` e `scripts/`. Como a aprovação não é obrigatória, essa revisão é um
+compromisso (ver acima).
 
 ## Acessos
 - [ ] O agente não faz merge, não publica e não altera a visibilidade nem estas configurações.
