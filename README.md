@@ -80,7 +80,7 @@ Limites:
 - O login do agente fica acessível dentro do `dev`. Veja o aviso da [documentação sobre contêineres de desenvolvimento](https://code.claude.com/docs/en/devcontainer).
 - As redes internas usam o [modo `isolated`](https://docs.docker.com/engine/network/port-publishing/). Sem ele, o contêiner alcança serviços abertos no computador pelo endereço da rede. Não remova a opção. Se a sua versão do Docker a recusar, atualize o Docker.
 - `dc build`, `scripts/pin-versions.sh` e `scripts/create-web.sh` usam a rede do Docker, que **não passa pelo gateway** nem pela lista de endereços.
-- O isolamento de código de participante é outro trabalho, em outra máquina.
+- Este ambiente não isola código de participante. No piloto, nada enviado pelo participante é executado; veja [docs/security.md](docs/security.md) e o módulo de código arquivado em [docs/archived.md](docs/archived.md).
 
 ## CI (GitHub Actions)
 O workflow fica em [.github/workflows/ci.yml](.github/workflows/ci.yml). Ele roda em todo pedido de integração
