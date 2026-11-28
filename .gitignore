@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 node_modules/
+web/.node_modules.new.*
 dist/
 .angular/
 *.log

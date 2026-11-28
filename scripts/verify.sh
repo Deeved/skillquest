@@ -11,7 +11,10 @@ check_go() {
     [ -z "$unformatted" ] || { echo "Sem formatação: $unformatted"; exit 1; }
     go vet ./...
     go test -count=1 ./...
-    CGO_ENABLED=0 go build ./...
+    # Compila numa pasta temporária, para não deixar binário no projeto.
+    out=$(mktemp -d)
+    trap 'rm -rf "$out"' EXIT
+    CGO_ENABLED=0 go build -o "$out/" ./...
   )
 }
 
@@ -23,6 +26,7 @@ for dir in api reviewer; do
 done
 if [ -f web/package.json ]; then
   echo "== Web"
+  sh scripts/setup.sh
   # Sem --if-present: script ausente deve falhar.
   (cd web && npm run lint && npm test && npm run build)
   has_product=1
