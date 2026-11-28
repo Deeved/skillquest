@@ -91,7 +91,7 @@ Os comandos de conferência da T-03 estão em [tasks/T-03-checks.md](tasks/T-03-
 |---|---|---|
 | `verify` | Constrói as imagens do zero, gera um `.env` fictício (`scripts/prepare-env.sh`, com o UID e o GID do executor) e roda `make verify` sem internet. Depois analisa as imagens `dev`, `gateway` e `postgres` com o OSV-Scanner. | teste, build ou análise que falhe; erro do scanner. Falha conhecida nas imagens só gera aviso. |
 | `secrets` | Procura segredos com o Gitleaks nos arquivos de HEAD e no histórico alcançável por HEAD. Recusa `.gitleaks.toml` e `.gitleaksignore`. | qualquer achado e qualquer erro |
-| `deps` | Confere as exceções em `osv-scanner.toml` e analisa os `go.mod` e os `package-lock.json` com o OSV-Scanner. | erro do scanner e exceção inválida. Por enquanto, falha conhecida só gera aviso (`DEPS_MODE: report`). |
+| `deps` | Confere as exceções em `osv-scanner.toml` e analisa os `go.mod` e os `package-lock.json` com o OSV-Scanner. | erro do scanner, exceção inválida e falha conhecida sem exceção válida (`DEPS_MODE: block`). |
 
 As ferramentas rodam em contêineres fixados por versão e digest, sem o socket do Docker, sem modo privilegiado,
 com o sistema de arquivos só para leitura e as entradas montadas só para leitura. O Gitleaks roda sem rede.
@@ -114,7 +114,8 @@ Depois do prazo, o scanner volta a apontar a falha. Só existe o `osv-scanner.to
   A análise das imagens detectou a biblioteca padrão num binário compilado (o `gosu`, na imagem `postgres`), mas
   isso não comprova a cobertura da API e do revisor, que ainda não têm imagens finais.
 - A análise das imagens só gera relatório, sem triagem de impacto.
-- O alerta conhecido do minimatch não foi corrigido. Por isso o `deps` continua com `DEPS_MODE: report`.
+- Com `DEPS_MODE: block`, uma falha publicada depois numa dependência já versionada passa a bloquear todos os
+  pedidos, inclusive os que não mexem em dependências, até ser corrigida ou ganhar uma exceção.
 - A limpeza dos registros não cobre as mensagens de erro do git no `gitleaks-selftest.sh` nem a saída de build e
   testes do `make verify`.
 - Os autotestes com erro proposital deixam duas anotações vermelhas na execução.
@@ -223,3 +224,21 @@ O workflow rodou no GitHub nos pedidos #4 a #8.
 #### Pendente
 - Bloco 10: limpeza de `/tmp/t03`.
 - Revisão humana e integração do pedido da T-03.
+
+#### Atualização em 28/11/2026
+Observado no GitHub, na sessão de revisão:
+- A PR #9 (typescript-eslint 8.74.0) foi integrada no commit `42fc6ba`.
+- No CI do `main` ([execução 46155499055](https://github.com/Deeved/skillquest/actions/runs/46155499055)), os três
+  jobs passaram e o `deps` não achou falha conhecida, com 0 exceções.
+- Análise das imagens na PR #9: o minimatch não apareceu mais na imagem `dev`. Seguem falhas conhecidas nas
+  imagens `dev` e `postgres`; nenhuma foi apontada na `gateway`. Sem triagem do impacto nem de se há correção
+  disponível.
+
+Conferido pelo agente, no repositório local:
+- `.github/` e `osv-scanner.toml` não mudaram entre `f67f355` (versão testada da T-03) e `42fc6ba`. Neste pedido,
+  o `ci.yml` muda só em `DEPS_MODE`, que passa a `block`, e no comentário sobre ele. O modo block foi testado na
+  T-03 (blocos 8a a 8d).
+
+Informado pela pessoa:
+- A PR #4 da T-03 foi revisada por uma pessoa e integrada.
+- Bloco 10: `/tmp/t03` não existe mais. A saída do comando não foi registrada.
