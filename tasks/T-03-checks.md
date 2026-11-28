@@ -22,7 +22,9 @@ Regras deste roteiro:
   (`git branch --show-current`) e o `git status`, veja até onde o bloco chegou e, na dúvida, pare e pergunte.
 - O pedido da T-03 (bloco 3) só pode ser integrado depois de concluídos os blocos 4 a 9, com as saídas anexadas,
   e da revisão humana.
-- Nada aqui foi executado ainda.
+- Os blocos 0 a 9 foram executados em 27 e 28/11/2026. Os desvios e os resultados estão no
+  [comentário do pedido de integração #4](https://github.com/Deeved/skillquest/pull/4#issuecomment-7232886657).
+  O bloco 10 está pendente.
 
 ## 0. Preparação
 Cria a pasta dos arquivos temporários. Falha se ela já existir, para não sobrescrever nada.

@@ -111,8 +111,14 @@ Depois do prazo, o scanner volta a apontar a falha. Só existe o `osv-scanner.to
   imagens. Um segredo nesses arquivos não é apontado.
 - Um segredo enviado ao GitHub continua público, mesmo apagado depois. Se for real, revogue-o.
 - O `deps` não cobre a biblioteca padrão do Go: o OSV-Scanner descarta a versão tirada do `go.mod`.
-  Ainda não se sabe se a análise das imagens cobre isso: falta ver o resultado no CI.
-- A análise das imagens só gera relatório. O alerta conhecido do minimatch ainda não foi corrigido.
+  A análise das imagens detectou a biblioteca padrão num binário compilado (o `gosu`, na imagem `postgres`), mas
+  isso não comprova a cobertura da API e do revisor, que ainda não têm imagens finais.
+- A análise das imagens só gera relatório, sem triagem de impacto.
+- O alerta conhecido do minimatch não foi corrigido. Por isso o `deps` continua com `DEPS_MODE: report`.
+- A limpeza dos registros não cobre as mensagens de erro do git no `gitleaks-selftest.sh` nem a saída de build e
+  testes do `make verify`.
+- Os autotestes com erro proposital deixam duas anotações vermelhas na execução.
+- A proteção do `main` não exige aprovação de pedidos de integração.
 - O executor é descartado no fim; o CI não roda `docker compose down`.
 
 ## O que foi testado
@@ -149,7 +155,12 @@ Não testado:
 - Falha do `make setup` no meio da cópia de `node_modules`.
 
 ### CI (T-03)
-Executado pelo agente, no contêiner `dev`, em 27/11/2026. Os testes dos scripts não usam rede nem o Docker de verdade.
+Versão testada: commit `f67f355`, em 27 e 28/11/2026 (horário de São Paulo). As saídas e os desvios estão no
+[comentário do pedido de integração #4](https://github.com/Deeved/skillquest/pull/4#issuecomment-7232886657).
+Os blocos citados são os de [tasks/T-03-checks.md](tasks/T-03-checks.md).
+
+#### No contêiner `dev`, pelo agente
+Executado em 27/11/2026. Os testes dos scripts não usam rede nem o Docker de verdade.
 - Testes em `.github/scripts/tests/`, depois da limpeza do registro. Todos passaram, com saída 0:
   - `test_osv_run.sh` e `test_gitleaks_selftest.sh`, com um Docker falso: códigos de saída, resumo sem o valor
     do segredo, opções passadas aos contêineres, isolamento do histórico e textos que o executor leria como
@@ -168,10 +179,47 @@ Executado pelo agente, no contêiner `dev`, em 27/11/2026. Os testes dos scripts
   - no repositório real, a política do Gitleaks mostrou "Nenhum .gitleaks.toml ou .gitleaksignore versionado.".
 - `make verify` dentro do `dev`, duas vezes: antes e depois da limpeza do registro. Passou nas duas (saída 0).
 
-Ainda não executado:
-- o workflow no GitHub;
-- o Gitleaks e o OSV-Scanner de verdade, inclusive o autoteste real do Gitleaks;
-- a construção das imagens no executor;
-- os critérios de aceite da T-03 e os blocos de [tasks/T-03-checks.md](tasks/T-03-checks.md).
+#### No computador, por uma pessoa
+- Blocos 0 a 2: autoteste real do Gitleaks com as três linhas "ok" e saída 0; o segredo fictício foi apontado
+  ("leaks found: 1", saída 99).
+- Envio direto ao `main` recusado pelo GitHub (GH006, com as 3 verificações obrigatórias).
+- Bloco 9: os quatro ramos locais de teste foram apagados.
 
-A sintaxe do workflow não foi conferida por nenhuma ferramenta.
+#### Configurações do repositório
+- Conferido pela API na sessão de revisão: `verify`, `secrets` e `deps` obrigatórias no `main`, para todos.
+- Informado pela pessoa, não consultado pela API: ações permitidas restritas; aprovação para executar o CI de
+  colaboradores externos; token do workflow somente leitura; Actions sem permissão de criar nem aprovar pedidos de
+  integração; ramo atualizado obrigatório antes do merge; nenhum segredo nem variável no Actions.
+
+#### No GitHub Actions, conferido na sessão de revisão
+| Critério ou bloco | Pedido | Resultado |
+|---|---|---|
+| Bloco 3: primeira execução | #4 | os três jobs passaram. Executor com UID 1001, Docker Engine 28.0.4 e Compose v2.38.2. Imagens construídas, rede isolada criada e `make verify` com "Passou.". Token com `Contents: read` e `Metadata: read`. Do `.env`, o registro mostrou só os nomes `LOCAL_UID`, `LOCAL_GID` e `DB_PASSWORD`. Autoteste real do Gitleaks com três "ok" e nenhum achado no histórico alcançável por HEAD. OSV-Scanner real: no `deps`, só `minimatch@10.2.6` (GHSA-g3hv-75wg-m249) |
+| Critério 1: teste quebrado (bloco 5) | #5 | `verify` falhou; merge bloqueado |
+| Critério 2: segredo fictício (bloco 6) | #6 | segredo apontado; os marcadores do valor não apareceram nos registros dos três jobs; merge bloqueado. O GitHub não recusou o envio |
+| Bloco 7: pedido limpo com o ramo do segredo trazido pelo checkout | #7 | nenhum achado |
+| Bloco 8a: `deps` em `block`, sem exceção | #8 | falhou |
+| Bloco 8b: exceção válida | #8 | exceção aplicada; os três jobs passaram |
+| Bloco 8c: exceção vencida | #8 | voltou a bloquear |
+| Bloco 8d: `ignoreUntil` | #8 | recusado antes da análise |
+| Bloco 9: encerramento | #5 a #8 | fechados sem merge; os quatro ramos de teste removidos do GitHub |
+
+Critérios 3 e 4, além do registro: a busca por "secrets." no `ci.yml` não teve achados e o `.env` não está
+versionado. Isso foi conferido na sessão de revisão, numa cópia do repositório na nuvem, não no computador da pessoa.
+
+Análise das imagens no `verify` (só informa, sem triagem do impacto nem de se há correção disponível):
+- `dev`: minimatch;
+- `postgres`: vários IDs na biblioteca padrão do Go 1.24.6 usada pelo `gosu` e um achado em `golang.org/x/sys@0.1.0`;
+- `gateway`: nenhuma falha conhecida apontada.
+
+O workflow rodou no GitHub nos pedidos #4 a #8.
+
+#### Desvios do roteiro
+- Os blocos 0 a 2 foram rodados num único comando.
+- As conferências locais do bloco 3 (critérios 3 e 4) foram feitas na cópia da nuvem, não no computador.
+- O pedido #7 foi aberto sem ser rascunho e fechado depois da execução.
+- O pedido #8 foi aberto sem ser rascunho e convertido em rascunho antes do 8b.
+
+#### Pendente
+- Bloco 10: limpeza de `/tmp/t03`.
+- Revisão humana e integração do pedido da T-03.
