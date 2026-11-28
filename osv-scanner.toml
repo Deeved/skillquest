@@ -1,0 +1,16 @@
+# Exceções do OSV-Scanner (job deps do CI). Hoje não há nenhuma.
+#
+# Uma exceção só entra com aprovação de uma pessoa, por pedido de integração, e precisa de:
+#   id              ID da falha conhecida, como aparece no relatório do CI
+#   reason          motivo, em português
+#   effectiveUntil  prazo, no máximo 90 dias depois da data da conferência
+#
+# Formato:
+#   [[IgnoredVulns]]
+#   id = "<ID da falha>"
+#   effectiveUntil = 2026-12-31
+#   reason = "<motivo>"
+#
+# Depois do prazo, a falha volta a ser apontada. Outras chaves e seções (ignoreUntil,
+# PackageOverrides, GoVersionOverride, ScanGoModVersion...) são recusadas por
+# .github/scripts/check-osv-config.py.
