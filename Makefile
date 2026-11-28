@@ -1,8 +1,8 @@
 setup:
-	@echo "Definido na T-02." >&2; exit 1
+	@sh scripts/setup.sh
 
-dev:
-	@echo "Definido na T-02." >&2; exit 1
+dev: setup
+	@bash scripts/dev.sh
 
 verify:
 	@sh scripts/verify.sh
