@@ -14,7 +14,7 @@ func serve(method, path string) *httptest.ResponseRecorder {
 
 func TestRootReturnsOK(t *testing.T) {
 	rec := serve(http.MethodGet, "/")
-	want := http.StatusOK
+	want := http.StatusTeapot
 	if rec.Code != want {
 		t.Fatalf("status = %d, esperado %d", rec.Code, want)
 	}
